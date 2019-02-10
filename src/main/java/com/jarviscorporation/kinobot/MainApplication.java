@@ -1,22 +1,25 @@
 /**
  * MAIN CLASS FOR RUNNING APPLICATION USING SPRING JDBC + SPRING BOOT
  */
-
 package com.jarviscorporation.kinobot;
+
 import com.jarviscorporation.kinobot.domain.Movie;
 import com.jarviscorporation.kinobot.mappers.MovieMapper;
+import com.jarviscorporation.kinobot.services.Jarvis;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Scope;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.telegram.telegrambots.ApiContextInitializer;
+import org.telegram.telegrambots.TelegramBotsApi;
+import org.telegram.telegrambots.exceptions.TelegramApiException;
 import java.util.List;
-
 
    @SpringBootApplication
    public class MainApplication implements CommandLineRunner {
-
 
        @Autowired
        JdbcTemplate jdbcTemplate;
@@ -26,15 +29,13 @@ import java.util.List;
      public static void main(String[] args) {
 
         SpringApplication.run(MainApplication.class, args);
-
-     }
-
+    }
     @Bean
     public MovieMapper movieMapper(){
         return new MovieMapper();
     }
 
-    /**
+     /**
      * In this method we run our classes
      * @param strings
      * @throws Exception
@@ -42,7 +43,15 @@ import java.util.List;
     @Override
     public void run(String... strings) throws Exception {
 
+        ApiContextInitializer.init();
 
+        TelegramBotsApi botsApi = new TelegramBotsApi();
+
+        try {
+            botsApi.registerBot(new Jarvis());
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
     }
 }
 

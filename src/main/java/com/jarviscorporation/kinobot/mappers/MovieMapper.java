@@ -1,6 +1,4 @@
-/**
- * Class-mapper for table MOVIES
- */
+
 
 package com.jarviscorporation.kinobot.mappers;
 
