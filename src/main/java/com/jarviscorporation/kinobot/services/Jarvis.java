@@ -1,11 +1,14 @@
 package com.jarviscorporation.kinobot.services;
 
 import com.jarviscorporation.kinobot.domain.Movie;
+import com.jarviscorporation.kinobot.domain.Seance;
 import com.jarviscorporation.kinobot.mappers.MovieMapper;
+import com.jarviscorporation.kinobot.mappers.SeanceMapper;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -30,6 +33,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private JdbcTemplate jdbcTemplate;
 
     private MovieMapper movieMapper;
+    private SeanceMapper seanceMapper;
 
     /**
      * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
@@ -41,19 +45,89 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
         if (!validaion(update)) return;
 
-        String response = update.getCallbackQuery().getData();
+        String responseData = update.getCallbackQuery().getData();
+        String responseMessage = update.getCallbackQuery().getMessage().getText();
 
-        switch (response) {
-            case ("startagain"):{
+        switch (responseMessage) {
+            case ("Choose command"):{
+                if (responseData.equals("showseances")) showDays();
+                else showMovies(update);
+                return;
+            }
+            case ("Movies:"): {
+                showMovieDescription(responseData);
+                return;
+            }
+            case ("Invalid command. Please choose button or start again"):{
                 showWelcomeMessage(update);
                 return;
             }
-            case ("showmovies"):{
-                showMovies(update);
+            case ("Choose day"): {
+                showSeances(responseData);
                 return;
             }
+
+
         }
-        return;
+    }
+
+    /**
+     * shows seances of Today, Tomorrow and Day after tomorrow
+     * @param day
+     */
+    private void showSeances(String day) {
+
+        List<Seance> seances = null;
+
+        switch (day){
+            case ("today"):{
+                seances = jdbcTemplate.query(
+                                "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                                        "(select * from seances\n" +
+                                        "where startTime between now() and (select addtime(CURDATE(), '23:59:59') as t)) as t1\n" +
+                                        "join\n" +
+                                        "(select movieID as mm, movie from movies) as t2\n" +
+                                        "on t1.movieID = t2.mm\n" +
+                                        "order by startTime asc ",
+                        seanceMapper);
+                break;
+            }
+        }
+        SendMessage message = new SendMessage().setChatId(chatID).setText("Today seances:");
+
+        message.setReplyMarkup(new InlineKeyboardMarkup());
+
+        for (Seance seance:seances) {
+            addButton(
+                    message,
+                    seance.getStartTime().toString()+" Hall#"+ seance.getHallID()+" "+seance.getMovie(),
+                    Integer.toString(seance.getSeanceID())
+            );
+        }
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+        System.out.println(seances);
+    }
+    private void showDays(){
+
+        SendMessage message = InlineKeyboardBuilder.create(chatID)
+                .setText("Choose day")
+                .row()
+                .button("Today", "today")
+                .button("Tomorrow", "tomorrow")
+                .button("Day after tomorrow", "dayaftertomorrow")
+                .endRow()
+                .build();
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+    private void showMovieDescription(String data) {
     }
 
     /**
@@ -68,7 +142,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
         message.setReplyMarkup(new InlineKeyboardMarkup());
         for (Movie movie:movies) {
-            addButton(message, movie.getMovie(), "movie" + movie.getMovie());
+            addButton(message, movie.getMovie(), movie.getMovie());
         }
         try {
             execute(message);
@@ -95,8 +169,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         List<InlineKeyboardButton> row = new ArrayList<>();
 
         row.add(new InlineKeyboardButton().setText(buttonText).setCallbackData(callbackData));
-
-        InlineKeyboardButton button = new InlineKeyboardButton();
 
         keyboard.add(row);
 
@@ -187,7 +259,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 .setText("Hello and welcome to our Kinohall!\n" +
                         "My name is Jarvis and I'm Kinobot.\n" +
                         "I'll help you to book tickets\n"+
-                        "For navigation through menu use buttons below"+
+                        "For navigation through menu use buttons below\n"+
                         "Please note that buttons are active half hour")
                 .setChatId(chatID);
             try {
@@ -207,7 +279,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private void showSeancesAndMovies(Update update) {
 
         SendMessage message = InlineKeyboardBuilder.create(chatID)
-                    .setText("Choose command...")
+                    .setText("Choose command")
                     .row()
                     .button("SHOW MOVIES", "showmovies")
                     .button("SHOW SEANCES", "showseances")
@@ -252,5 +324,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         this.applicationContext = applicationContext;
          movieMapper = applicationContext.getBean(MovieMapper.class);
          jdbcTemplate= applicationContext.getBean(JdbcTemplate.class);
+         seanceMapper = applicationContext.getBean(SeanceMapper.class);
     }
 }

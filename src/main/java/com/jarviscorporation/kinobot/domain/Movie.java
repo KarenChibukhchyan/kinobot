@@ -2,7 +2,9 @@ package com.jarviscorporation.kinobot.domain;
 
 public class Movie {
 
+    private String movie;
     private int id;
+
 
     @Override
     public String toString() {
@@ -27,6 +29,4 @@ public class Movie {
     public void setMovie(String movie) {
         this.movie = movie;
     }
-
-    private String movie;
 }
