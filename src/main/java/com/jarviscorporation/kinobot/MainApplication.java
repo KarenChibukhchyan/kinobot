@@ -3,55 +3,41 @@
  */
 package com.jarviscorporation.kinobot;
 
-import com.jarviscorporation.kinobot.domain.Movie;
 import com.jarviscorporation.kinobot.mappers.MovieMapper;
 import com.jarviscorporation.kinobot.services.Jarvis;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
+import com.jarviscorporation.kinobot.services.JarvisStarter;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Scope;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.telegram.telegrambots.ApiContextInitializer;
-import org.telegram.telegrambots.TelegramBotsApi;
-import org.telegram.telegrambots.exceptions.TelegramApiException;
-import java.util.List;
 
-   @SpringBootApplication
-   public class MainApplication implements CommandLineRunner {
+@SpringBootApplication
+   public class MainApplication {
 
-       @Autowired
-       JdbcTemplate jdbcTemplate;
-       @Autowired
-       MovieMapper movieMapper;
-
-     public static void main(String[] args) {
+    public static void main(String[] args) {
 
         SpringApplication.run(MainApplication.class, args);
     }
+
     @Bean
-    public MovieMapper movieMapper(){
+    JarvisStarter jarvisStarter() {
+        return new JarvisStarter();
+    }
+
+    @Bean
+    public Jarvis jarvis() {
+        return new Jarvis();
+    }
+
+    @Bean
+    public MovieMapper movieMapper() {
         return new MovieMapper();
     }
 
-     /**
-     * In this method we run our classes
-     * @param strings
-     * @throws Exception
-     */
-    @Override
-    public void run(String... strings) throws Exception {
-
-        ApiContextInitializer.init();
-
-        TelegramBotsApi botsApi = new TelegramBotsApi();
-
-        try {
-            botsApi.registerBot(new Jarvis());
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
-    }
 }
+
+
+
 
