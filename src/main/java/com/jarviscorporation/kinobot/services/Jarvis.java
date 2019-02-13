@@ -1,20 +1,25 @@
 package com.jarviscorporation.kinobot.services;
 
 import com.jarviscorporation.kinobot.domain.Movie;
+import com.jarviscorporation.kinobot.domain.Place;
 import com.jarviscorporation.kinobot.domain.Seance;
 import com.jarviscorporation.kinobot.mappers.MovieMapper;
+import com.jarviscorporation.kinobot.mappers.PlaceMapper;
 import com.jarviscorporation.kinobot.mappers.SeanceMapper;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.ResultSetExtractor;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
+import org.telegram.telegrambots.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
+
+import java.io.File;
 import java.util.*;
 
 public class Jarvis extends TelegramLongPollingBot implements ApplicationContextAware {
@@ -42,16 +47,16 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     public void onUpdateReceived(Update update) {
 
         getChatID(update);
-
         if (!validaion(update)) return;
-
         String responseData = update.getCallbackQuery().getData();
         String responseMessage = update.getCallbackQuery().getMessage().getText();
 
+    //this is case when button was pressed from image
+    if (responseMessage!=null)
         switch (responseMessage) {
             case ("Choose command"):{
                 if (responseData.equals("showseances")) showDays();
-                else showMovies(update);
+                else showMovies();
                 return;
             }
             case ("Movies:"): {
@@ -66,12 +71,93 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 showSeances(responseData);
                 return;
             }
-
-
+            case ("Today seances:"):{
+                int hallID = Integer.parseInt(responseData.substring(0,1));
+                int seanceID = Integer.parseInt(responseData.substring(1));
+                showImageForBooking(hallID,seanceID);
+                return;
+            }
+        }
+    else
+        //this is case when button pressed not from message
+        //for example from photo message
+        if (responseData!= null){
+            switch (responseData){
+                case ("startagain"):{
+                    showSeancesAndMovies(update);
+                    return;
+                }
+            }
         }
     }
 
     /**
+     * this method retrieves:
+     * 1 hall's size
+     * 2 booked places for this seance
+     * 3 creates new boolean[][] with places to be draw
+     * 4 passes these info to ImageCreator class
+     * 5 sends created image file to chat
+     * @param hallID
+     * @param seanceID
+     */
+    private void showImageForBooking(int hallID, int seanceID) {
+
+        PlaceMapper placeMapper = new PlaceMapper();
+
+        List<Integer> rowsTemp = jdbcTemplate.query("select b.rows, b.seats from halls s\n" +
+                "join hallinfo b on s.hallID = b.hallID\n" +
+                "where s.hallID="+hallID , (resultSet, i) -> resultSet.getInt("rows"));
+        List<Integer> seatsTemp = jdbcTemplate.query("select b.rows, b.seats from halls s\n" +
+                "join hallinfo b on s.hallID = b.hallID\n" +
+                "where s.hallID="+hallID , (resultSet, i) -> resultSet.getInt("seats"));
+
+        int rows = rowsTemp.get(0);
+        int seats = seatsTemp.get(0);
+
+        List<Place> placesTemp = jdbcTemplate.query("select b.row, b.seat from seances s\n" +
+                "join books b on s.seanceID = b.seanceID\n" +
+                "where s.seanceID = "+seanceID,placeMapper);
+
+        boolean[][] placesToDraw = new boolean[rows][seats];
+        for(Place place : placesTemp){
+            placesToDraw[place.getRow()][place.getSeat()] = true;
+        }
+        ImageCreator.createImage(hallID,seanceID,placesToDraw,"red");
+
+        SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
+
+        sendPhoto.setNewPhoto(new File("src/main/resources/"+seanceID+".png"));
+
+        InlineKeyboardMarkup replyKeyboardMarkup = new InlineKeyboardMarkup();
+
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+
+        row.add(new InlineKeyboardButton()
+                .setText("Press for booking places")
+                .setCallbackData("pressforbookingplaces"));
+        row.add(new InlineKeyboardButton()
+                .setText("Start again?")
+                .setCallbackData("startagain"));
+
+        keyboard.add(row);
+        replyKeyboardMarkup.setKeyboard(keyboard);
+
+        sendPhoto.setReplyMarkup(replyKeyboardMarkup);
+
+        try {
+            sendPhoto(sendPhoto);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+
+        return;
+    }
+
+    /**
+     *        TODO VAHE !!!!!!!!!!!!!!!!!!!!!!!!
      * shows seances of Today, Tomorrow and Day after tomorrow
      * @param day
      */
@@ -93,15 +179,30 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 break;
             }
         }
+        //this checks that data from databese is not empty
+        if (seances.isEmpty()){
+            SendMessage message = new SendMessage()
+                    .setChatId(chatID)
+                    .setText("No seances availabale" +
+                            "\nPlease try again later");
+          try{
+              execute(message);
+          }catch (TelegramApiException e){
+
+          }
+            return;
+        }
         SendMessage message = new SendMessage().setChatId(chatID).setText("Today seances:");
 
         message.setReplyMarkup(new InlineKeyboardMarkup());
 
         for (Seance seance:seances) {
+            String time = seance.getStartTime().toString();
+            time = time.substring(0,time.length()-3);
             addButton(
                     message,
-                    seance.getStartTime().toString()+" Hall#"+ seance.getHallID()+" "+seance.getMovie(),
-                    Integer.toString(seance.getSeanceID())
+                    time+" Hall#"+ seance.getHallID()+" "+seance.getMovie(),
+                    Integer.toString(seance.getHallID())+seance.getSeanceID()
             );
         }
         try {
@@ -109,8 +210,12 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-        System.out.println(seances);
+
     }
+
+    /**
+     * Shows buttons Today Tomorrow and Day after tomorrow
+     */
     private void showDays(){
 
         SendMessage message = InlineKeyboardBuilder.create(chatID)
@@ -127,6 +232,11 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             e.printStackTrace();
         }
     }
+
+    /**
+     *  TODO ARMAN !!!!!!!!!!!!!!!!!!!!!!!!!
+     * @param data
+     */
     private void showMovieDescription(String data) {
     }
 
@@ -134,10 +244,17 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      * method for retrieving movies from table "Movies"
      * @param update
      */
-    private void showMovies(Update update) {
+    private void showMovies() {
 
         List<Movie> movies = jdbcTemplate.query("SELECT * FROM MOVIES", movieMapper);
 
+        if (movies.isEmpty()){
+            SendMessage message = new SendMessage()
+                    .setChatId(chatID)
+                    .setText("No movie is availabale" +
+                            "\nPlease try later");
+            return;
+        }
         SendMessage message = new SendMessage().setChatId(chatID).setText("Movies:");
 
         message.setReplyMarkup(new InlineKeyboardMarkup());
