@@ -15,9 +15,6 @@ public class ImageCreator {
     //should be called when Jarvis shows available places
     public static void createImage(int hallID, int seanceID, boolean[][] placesToDraw, String color) {
 
-        System.out.println("hallID "+hallID);
-        System.out.println("seanceID "+seanceID);
-
         Color busyColor;
         Color freeColor = Color.white;
 
