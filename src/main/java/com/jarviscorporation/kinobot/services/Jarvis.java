@@ -10,6 +10,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.telegram.telegrambots.api.methods.ParseMode;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.api.objects.Update;
@@ -47,6 +48,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private int hallSizeSeats = 0;
     private int hallID;
     private int seanceID;
+    private String movieID;
+
     /**
      * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
      *
@@ -87,7 +90,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     return;
                 }
                 case ("Movies:"): {
-                    showMovieDescription(responseData);
+                    showSeancesforMovie(responseData);
                     return;
                 }
                 case ("Invalid command. Please choose button or start again"): {
@@ -99,6 +102,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     return;
                 }
 
+
                 case ("Today seances:"): {
                     hallID = Integer.parseInt(responseData.substring(0, 1));
                     seanceID = Integer.parseInt(responseData.substring(1));
@@ -106,8 +110,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     return;
                 }
             }
-
-            //this is case when button pressed not from message
+        //this is case when button pressed not from message
             //for example from photo message
             if (responseData != null) {
                 switch (responseData) {
@@ -118,6 +121,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     }
                     case ("startagain"): {
                         showSeancesAndMovies(update);
+                        return;
+                    }
+                    case ("showseances"): {
+                        showSeancesforMovie(movieID);
+                        return;
+                    }
+
+                    case ("backtomovielist"): {
+                        showMovies();
                         return;
                     }
                     case ("pressforbookingplaces"): {
@@ -133,6 +145,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     }
                 }
             }
+        if (responseMessage!=null && responseMessage.contains("Seances for")){
+            hallID = Integer.parseInt(responseData.substring(0, 1));
+            seanceID = Integer.parseInt(responseData.substring(1));
+            showImageForBooking(hallID,seanceID);
+            return;
+        }
+
+
     }
 
     private void addBook(boolean[][] placesToDraw) {
@@ -142,14 +162,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         Random rnd = new Random();
         int number = rnd.nextInt(999999);
         SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
-                .setText("You've just booked above mentioned places. " +
-                        "\nYour booking code is "+number+
-                        "\nNOTE!!! Book will be automatically cancelled if you dont buy tickets" +
+                .setText("You've just booked above mentioned place(s). " +
+                        "\nYour booking code is "+"*"+ number+"*"+
+                        "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +
                         "\n earlier than 30 minutes before beginning of movie seance!!!")
                 .row()
                 .button("Start new booking?","startagain")
                 .endRow()
                 .build();
+        sendMessage.setParseMode(ParseMode.MARKDOWN);
         try {
             execute(sendMessage);
         } catch (TelegramApiException e) {
@@ -280,7 +301,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
             SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
 
-            sendPhoto.setNewPhoto(new File("src/main/resources/" + seanceID + ".png"));
+            sendPhoto.setNewPhoto(new File("src/main/resources/" + seanceID+"_green" + ".png"));
 
             try {
                 sendPhoto(sendPhoto);
@@ -445,7 +466,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      * @param day
      */
     private void showSeances(String day) {
-
         List<Seance> seances = null;
 
         switch (day) {
@@ -488,6 +508,55 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     Integer.toString(seance.getHallID()) + seance.getSeanceID()
             );
         }
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void showSeancesforMovie(String movie) {
+
+        List<Seance> seances = null;
+
+                seances = jdbcTemplate.query(
+                        "select seanceID,hallID,seances.movieID,startTime,duration,movies.movie\n"+
+                        "from seances\n"+
+                        "join movies\n"+
+                        "on seances.movieID = movies.movieID\n"+
+                        "where movies.movie="+"\""+movie+"\""+
+                        "\norder by startTime asc",
+                        seanceMapper);
+
+
+
+        //this checks that data from databese is not empty
+        if (seances.isEmpty()) {
+            SendMessage message = new SendMessage()
+                    .setChatId(chatID)
+                    .setText("No seances availabale" +
+                            "\nPlease try again later");
+            try {
+                execute(message);
+            } catch (TelegramApiException e) {
+
+            }
+            return;
+        }
+        SendMessage message = new SendMessage().setChatId(chatID).setText("Seances for "+movie);
+
+        message.setReplyMarkup(new InlineKeyboardMarkup());
+
+        for (Seance seance : seances) {
+            String time = seance.getStartTime().toString();
+            time = time.substring(0, time.length() - 3);
+            addButton(
+                    message,
+                    seance.getStartDate()+" "+time + " Hall#" + seance.getHallID(),
+                    Integer.toString(seance.getHallID()) + seance.getSeanceID()
+            );
+        }
+        addButton(message,"Back to movie list", "backtomovielist");
         try {
             execute(message);
         } catch (TelegramApiException e) {

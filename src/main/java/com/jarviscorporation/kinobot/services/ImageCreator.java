@@ -73,7 +73,12 @@ public class ImageCreator {
             }
         }
 
-        File file = new File("src/main/resources/"+seanceID + ".png");
+        File file=null;
+        if (busyColor.equals(Color.green))
+        file = new File("src/main/resources/"+seanceID+"_green" + ".png");
+        else
+            file = new File("src/main/resources/"+seanceID + ".png");
+
         try {
             ImageIO.write(bufferedImage, "png", file);
         } catch (IOException e) {
