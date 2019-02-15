@@ -49,12 +49,28 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private int hallID;
     private int seanceID;
     private String movieID;
+    private List<Integer> confirmIgnoreList;
 
     /**
      * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
      *
      * @param update
      */
+    public Jarvis() {
+
+        placesToDraw = null;
+        row = 0;
+        seats = null;
+
+        hallSizeRow = 0;
+        hallSizeSeats = 0;
+
+        hallID = 0;
+        seanceID = 0;
+        confirmIgnoreList = new ArrayList<>();
+
+    }
+
     public void onUpdateReceived(Update update) {
 
         getChatID(update);
@@ -111,91 +127,117 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 }
             }
         //this is case when button pressed not from message
-            //for example from photo message
-            if (responseData != null) {
-                switch (responseData) {
+        //for example from photo message
+        if (responseData != null) {
+            switch (responseData) {
 
-                    case ("confirm"): {
-                        addBook(placesToDraw);
-                        return;
-                    }
-                    case ("startagain"): {
-                        showSeancesAndMovies(update);
-                        return;
-                    }
-                    case ("showseances"): {
-                        showSeancesforMovie(movieID);
-                        return;
-                    }
+                case ("startagain"): {
+                    showSeancesAndMovies(update);
+                    return;
+                }
+                case ("showseances"): {
+                    showSeancesforMovie(movieID);
+                    return;
+                }
 
-                    case ("backtomovielist"): {
-                        showMovies();
-                        return;
+                case ("backtomovielist"): {
+                    showMovies();
+                    return;
+                }
+                case ("pressforbookingplaces"): {
+                    SendMessage message = new SendMessage()
+                            .setText("Enter row").setChatId(chatID);
+                    enteringMode = true;
+                    try {
+                        execute(message);
+                    } catch (TelegramApiException e) {
+                        e.printStackTrace();
                     }
-                    case ("pressforbookingplaces"): {
-                        SendMessage message = new SendMessage()
-                                .setText("Enter row").setChatId(chatID);
-                        enteringMode = true;
-                        try {
-                            execute(message);
-                        } catch (TelegramApiException e) {
-                            e.printStackTrace();
-                        }
-                        return;
-                    }
+                    return;
                 }
             }
-        if (responseMessage!=null && responseMessage.contains("Seances for")){
+        }
+        if (responseMessage != null && responseMessage.contains("Seances for")) {
             hallID = Integer.parseInt(responseData.substring(0, 1));
             seanceID = Integer.parseInt(responseData.substring(1));
-            showImageForBooking(hallID,seanceID);
+            showImageForBooking(hallID, seanceID);
+            return;
+        }
+
+        if (responseData != null && responseMessage != null && responseMessage.contains("Confirm booking")) {
+            addBook(responseData);
+        }
+    }
+
+    private void addBook(String responseData) {
+
+        int number;
+        try {
+            String[] strings = responseData.split(",");
+
+            int seanceID = Integer.parseInt(strings[0]);
+            int row = Integer.parseInt(strings[1]);
+
+            String[] stringSeats = strings[2].split("z");
+            int[] seats = new int[stringSeats.length];
+
+            for (int i = 0; i < seats.length; i++) {
+                seats[i]=Integer.parseInt(stringSeats[i]);
+            }
+            Random rnd = new Random();
+            number = rnd.nextInt(999999);
+
+            System.out.println("seanceID "+seanceID);
+            System.out.println("row "+row);
+            for (int i = 0; i < seats.length; i++) {
+
+                System.out.println("seats "+seats);
+            }
+
+            for (int i = 0; i < seats.length; i++) {
+
+                jdbcTemplate.update(
+                        "INSERT INTO books (" +
+                                "seanceID," +
+                                "row," +
+                                "seat," +
+                                "bookCode," +
+                                "status) " +
+                                "VALUES (?,?,?,?,?)",
+                        seanceID, row, seats[i], number, "booked");
+            }
+        }catch (Exception e){
+            SendMessage message = InlineKeyboardBuilder
+                    .create(chatID)
+                    .setText("Cannot complete booking!!!")
+                    .row()
+                    .button("Start new booking?", "startagain")
+                    .endRow()
+                    .build();
+            try{
+                execute(message);
+            } catch(TelegramApiException e1){
+                e1.printStackTrace();
+                    return;
+                }
             return;
         }
 
 
-    }
-
-    private void addBook(boolean[][] placesToDraw) {
-
-        if(placesToDraw == null) return;
-
-        Random rnd = new Random();
-        int number = rnd.nextInt(999999);
-        SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
-                .setText("You've just booked above mentioned place(s). " +
-                        "\nYour booking code is "+"*"+ number+"*"+
-                        "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +
-                        "\n earlier than 30 minutes before beginning of movie seance!!!")
-                .row()
-                .button("Start new booking?","startagain")
-                .endRow()
-                .build();
+    SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
+            .setText("You've just booked above mentioned place(s). " +
+                    "\nYour booking code is " + "*" + number + "*" +
+                    "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +
+                    "\n earlier than 30 minutes before beginning of movie seance!!!")
+            .row()
+            .button("Start new booking?", "startagain")
+            .endRow()
+            .build();
         sendMessage.setParseMode(ParseMode.MARKDOWN);
-        try {
+        try{
             execute(sendMessage);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
-        for (int i = 0; i < placesToDraw.length; i++) {
-            for (int j = 0; j < placesToDraw[0].length; j++) {
-                if (placesToDraw[i][j]) {
+        }catch(TelegramApiException e){ e.printStackTrace();}
 
-                    jdbcTemplate.update(
-                            "INSERT INTO books (" +
-                            "seanceID," +
-                            "row," +
-                            "seat," +
-                            "bookCode) " +
-                            "VALUES (?,?,?,?)",
-                            seanceID,i,j,number);
-                }
-            }
-        }
-        hallID=0;
-        seanceID=0;
-        row=0;
-        placesToDraw=null;
-        seats=null;
         return;
     }
 
@@ -258,13 +300,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
             if (placesToDraw!=null){
                 for (Integer seat : seats) {
-                    if (placesToDraw[row-1][seat]){
+                    if (placesToDraw[row-1][seat-1]){
 
                         SendMessage sendMessage = new SendMessage()
-                                .setText("Place(s) is already occupied. Try again")
+                                .setText("Place(s) is already occupied. Try again" +
+                                        "\nEnter row:")
                                 .setChatId(chatID);
                         try {
                             execute(sendMessage);
+                            row =0;
                             seats=null;
                             return;
                         } catch (TelegramApiException e) {
@@ -275,11 +319,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 }
             }
             StringBuilder str = new StringBuilder();
+            StringBuilder seatsString= new StringBuilder();
             for (int i = 0; i < seats.length; i++) {
-                if (i==seats.length-1)
-                str.append(seats[i]);
-                else
-                str.append(seats[i]+",");
+                if (i == seats.length - 1) {
+                    seatsString.append(seats[i]);
+                    str.append(seats[i]);
+                } else {
+                    str.append(seats[i] + ",");
+                    seatsString.append(seats[i]+"z");
+                }
             }
             SendMessage message = InlineKeyboardBuilder.create(chatID)
             .setText("Your places: " +
@@ -287,7 +335,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     "  seats= "+str.toString()+
                     "\nConfirm booking?")
             .row()
-            .button("Confirm","confirm")
+            .button("Confirm",seanceID+","+row+","+seatsString)
             .button("Start again","startagain")
             .endRow()
             .build();
@@ -417,14 +465,17 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         hallSizeRow = rows;
         hallSizeSeats = seats;
 
-        List<Place> placesTemp = jdbcTemplate.query("select b.row, b.seat from seances s\n" +
+        List<Place> placesTemp = jdbcTemplate.query(
+                "select b.row, b.seat from seances s\n" +
                 "join books b on s.seanceID = b.seanceID\n" +
-                "where s.seanceID = " + seanceID, placeMapper);
+                "where s.seanceID = " + seanceID +
+                " and status = \"booked\" or status = \"bought\"",
+                placeMapper);
 
 
         placesToDraw = new boolean[rows][seats];
         for (Place place : placesTemp) {
-            placesToDraw[place.getRow()][place.getSeat()] = true;
+            placesToDraw[place.getRow()-1][place.getSeat()-1] = true;
         }
         ImageCreator.createImage(hallID, seanceID, placesToDraw, "red");
 

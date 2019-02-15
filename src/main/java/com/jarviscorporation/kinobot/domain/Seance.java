@@ -8,6 +8,7 @@ import java.time.LocalTime;
 
 public class Seance {
 
+
     private int seanceID;
     private int hallID;
     private int movieID;
