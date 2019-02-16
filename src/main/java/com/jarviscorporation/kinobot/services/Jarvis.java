@@ -157,7 +157,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     }
 
     /**
-     *        TODO VAHE !!!!!!!!!!!!!!!!!!!!!!!!
      * shows seances of Today, Tomorrow and Day after tomorrow
      * @param day
      */
@@ -178,6 +177,31 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         seanceMapper);
                 break;
             }
+            case ("tomorrow"):{
+                seances = jdbcTemplate.query(
+                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                                "(select * from seances\n" +
+                                "where startTime between (select addtime(CURDATE()+1, '00:00:00') as t) and (select addtime(CURDATE()+1, '23:59:59') as t1)) as t2\n" +
+                                "join\n" +
+                                "(select movieID as mm, movie from movies) as t3\n" +
+                                "on t2.movieID = t3.mm\n" +
+                                "order by startTime asc ",
+                        seanceMapper);
+                break;
+            }
+            case ("dayaftertomorrow"):{
+                seances = jdbcTemplate.query(
+                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                                "(select * from seances\n" +
+                                "where startTime between (select addtime(CURDATE()+2, '00:00:00') as t) and (select addtime(CURDATE()+2, '23:59:59') as t1)) as t2\n" +
+                                "join\n" +
+                                "(select movieID as mm, movie from movies) as t3\n" +
+                                "on t2.movieID = t3.mm\n" +
+                                "order by startTime asc ",
+                        seanceMapper);
+                break;
+            }
+
         }
         //this checks that data from databese is not empty
         if (seances.isEmpty()){
@@ -242,7 +266,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     /**
      * method for retrieving movies from table "Movies"
-     * @param update
      */
     private void showMovies() {
 
@@ -418,7 +441,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      */
     @Override
     public String getBotUsername() {
-        return "Jarvis_Karen_Bot";
+        return "vahe_jarvis_bot";
+        //return "Jarvis_Karen_Bot";
     }
 
     /**
@@ -428,7 +452,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      */
     @Override
     public String getBotToken() {
-        return "705910420:AAGbp2pTLE7Uco9Dl0F1q2VHN5xc4JuDh4M";
+        return "752324160:AAGr225EVbI9y9alRdcvUcRPU6qUZGylXTk";
+        //return "705910420:AAGbp2pTLE7Uco9Dl0F1q2VHN5xc4JuDh4M";
     }
 
     /**
