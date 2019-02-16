@@ -53,7 +53,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     /**
      * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
-     *
      * @param update
      */
     public Jarvis() {
@@ -513,7 +512,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     /**
      * TODO VAHE !!!!!!!!!!!!!!!!!!!!!!!!
      * shows seances of Today, Tomorrow and Day after tomorrow
-     *
      * @param day
      */
     private void showSeances(String day) {
@@ -532,6 +530,31 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         seanceMapper);
                 break;
             }
+            case ("tomorrow"):{
+                seances = jdbcTemplate.query(
+                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                                "(select * from seances\n" +
+                                "where startTime between (select addtime(CURDATE()+1, '00:00:00') as t) and (select addtime(CURDATE()+1, '23:59:59') as t1)) as t2\n" +
+                                "join\n" +
+                                "(select movieID as mm, movie from movies) as t3\n" +
+                                "on t2.movieID = t3.mm\n" +
+                                "order by startTime asc ",
+                        seanceMapper);
+                break;
+            }
+            case ("dayaftertomorrow"):{
+                seances = jdbcTemplate.query(
+                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                                "(select * from seances\n" +
+                                "where startTime between (select addtime(CURDATE()+2, '00:00:00') as t) and (select addtime(CURDATE()+2, '23:59:59') as t1)) as t2\n" +
+                                "join\n" +
+                                "(select movieID as mm, movie from movies) as t3\n" +
+                                "on t2.movieID = t3.mm\n" +
+                                "order by startTime asc ",
+                        seanceMapper);
+                break;
+            }
+
         }
         //this checks that data from databese is not empty
         if (seances.isEmpty()) {
@@ -637,8 +660,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     }
 
     /**
-     * TODO ARMAN !!!!!!!!!!!!!!!!!!!!!!!!!
-     *
+     *  TODO ARMAN !!!!!!!!!!!!!!!!!!!!!!!!!
      * @param data
      */
     private void showMovieDescription(String data) {
@@ -646,7 +668,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     /**
      * method for retrieving movies from table "Movies"
-     *
      * @param update
      */
     private void showMovies() {
@@ -704,7 +725,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      * 2 if inline button was clicked which is older than 30 minutes -  breaks running
      * 3 if was received message after 30 minutes of idle - shows welcome message
      * 4 if was received message - calls InvalidCommand method
-     *
      * @param update
      * @return
      */
@@ -757,7 +777,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     /**
      * gets chat ID
-     *
      * @param update
      */
     private void getChatID(Update update) {
@@ -774,7 +793,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     /**
      * shows greeting message and calls method for showing See Seances and See Movies
-     *
      * @param update
      */
     private void showWelcomeMessage(Update update) {
@@ -796,11 +814,10 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         }
 
         return;
-    }
+     }
 
     /**
      * Shows buttons SEE MOVIES and SEE SEANCES
-     *
      * @param update
      */
     private void showSeancesAndMovies(Update update) {
@@ -834,7 +851,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     /**
      * necessary method for bot registration
      * needed for Telegram server
-     *
      * @return
      */
     @Override
