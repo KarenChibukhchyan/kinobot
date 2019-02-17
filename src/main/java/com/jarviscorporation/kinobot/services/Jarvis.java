@@ -50,7 +50,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private String movieID;
     /**
      * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
-     * @param update
+     * @param
      */
     public Jarvis() {
 
@@ -135,7 +135,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     showSeances(responseData);
                     return;
                 }
-                case ("Today seances:"):
+                case ("Today's seances:"):
                 case ("Tomorrow's seances:"):
                 case ("Day after tomorrow's seances:"): {
                     hallID = Integer.parseInt(responseData.substring(0, 1));
@@ -184,14 +184,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                                 "row," +
                                 "seat," +
                                 "bookCode," +
-                                "status) " +
-                                "VALUES (?,?,?,?,?)",
-                        seanceID, row, seats[i], number, "booked");
+                                "status," +
+                                "recordStatus) " +
+                                "VALUES (?,?,?,?,?,?)",
+                        seanceID, row, seats[i], number, "booked","active");
             }
         }catch (Exception e){
             SendMessage message = InlineKeyboardBuilder
                     .create(chatID)
-                    .setText("Cannot complete booking!!!")
+                    .setText("Cannot complete booking!")
                     .row()
                     .button("Start new booking?", "startagain")
                     .endRow()
@@ -206,10 +207,10 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         }
 
     SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
-            .setText("You've just booked above mentioned place(s). " +
+            .setText("You've just booked the above mentioned place(s). " +
                     "\nYour booking code is " + "*" + number + "*" +
                     "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +
-                    "\n earlier than 30 minutes before beginning of movie seance!!!")
+                    "\n earlier than 30 minutes before beginning of movie seance!")
             .row()
             .button("Start new booking?", "startagain")
             .endRow()
@@ -236,7 +237,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     throw new NumberFormatException();
                 }
                 SendMessage message = new SendMessage()
-                        .setText("Your row is " + row + "\nPlease enter seats numbers\n" +
+                        .setText("Your row is " + row + "\nPlease enter seats\n" +
                                 "You can use following formats\n" +
                                 "1,2,3 or 1 - 10 or 1,2,3-10").setChatId(chatID);
                 try {
@@ -345,11 +346,12 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             }
         }   catch (NumberFormatException e) {
             SendMessage sendMessage = new SendMessage()
-                    .setText("Invalid format. Please use correct format")
+                    .setText("Invalid format. Please use correct format\nEnter row")
                     .setChatId(chatID);
 
             try {
                 execute(sendMessage);
+                row=0;
                 return;
             } catch (TelegramApiException e1) {
                 e1.printStackTrace();
@@ -452,9 +454,9 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 "select b.row, b.seat from seances s\n" +
                 "join books b on s.seanceID = b.seanceID\n" +
                 "where s.seanceID = " + seanceID +
-                " and status = \"booked\" or status = \"bought\"",
+                " and (status = \"booked\" or status = \"bought\")" +
+                        " and recordStatus!= \"deleted\"",
                 placeMapper);
-
 
         boolean[][] placesToDraw = new boolean[rows][seats];
         for (Place place : placesTemp) {
@@ -473,7 +475,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         List<InlineKeyboardButton> row = new ArrayList<>();
 
         row.add(new InlineKeyboardButton()
-                .setText("Press for booking places")
+                .setText("Click to book places")
                 .setCallbackData("pressforbookingplaces"));
         row.add(new InlineKeyboardButton()
                 .setText("Start again?")
@@ -506,7 +508,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
                                 "(select * from seances\n" +
                                 "where startTime between now() and (select addtime(CURDATE(), '23:59:59') as t)" +
-                                "and expirationStatus != \"expired\") as t1\n" +
+                                "and expirationStatus != \"deleted\") as t1\n" +
                                 "join\n" +
                                 "(select movieID as mm, movie from movies) as t2\n" +
                                 "on t1.movieID = t2.mm\n" +
@@ -521,7 +523,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                                 "(select * from seances\n" +
                                 "where startTime between (select addtime(CURDATE()+1, '00:00:00') as t) " +
                                 "and (select addtime(CURDATE()+1, '23:59:59') as t1)" +
-                                "and expirationStatus != \"expired\") as t2\n" +
+                                "and expirationStatus != \"deleted\") as t2\n" +
                                 "join\n" +
                                 "(select movieID as mm, movie from movies) as t3\n" +
                                 "on t2.movieID = t3.mm\n" +
@@ -536,7 +538,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                                 "(select * from seances\n" +
                                 "where startTime between (select addtime(CURDATE()+2, '00:00:00') as t) " +
                                 "and (select addtime(CURDATE()+2, '23:59:59') as t1) " +
-                                "and expirationStatus != \"expired\") as t2\n" +
+                                "and expirationStatus != \"deleted\") as t2\n" +
                                 "join\n" +
                                 "(select movieID as mm, movie from movies) as t3\n" +
                                 "on t2.movieID = t3.mm\n" +
@@ -593,7 +595,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         "where movies.movie="+
                          "\""+movie+"\" " +
                           " and startTime > now() "+
-                         "and expirationStatus != \"expired\""+
+                         "and expirationStatus != \"deleted\""+
                         "\norder by startTime asc",
                         seanceMapper);
 
@@ -672,7 +674,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         if (movies.isEmpty()) {
             SendMessage message = new SendMessage()
                     .setChatId(chatID)
-                    .setText("No movie is availabale" +
+                    .setText("No movie availabale" +
                             "\nPlease try later");
             try {
                 execute(message);
@@ -801,11 +803,11 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         SendMessage message;
 
         message = new SendMessage()
-                .setText("Hello and welcome to our Kinohall!\n" +
-                        "My name is Jarvis and I'm Kinobot.\n" +
-                        "I'll help you to book tickets\n" +
+                .setText("Hello and welcome to Kinohall!\n" +
+                        "My name is Jarvis and I'm your Kinobot.\n" +
+                        "I'll help you book tickets\n" +
                         "For navigation through menu use buttons below\n" +
-                        "Please note that buttons are active half hour")
+                        "Please note that buttons are active for half an hour")
                 .setChatId(chatID);
         try {
             execute(message);
@@ -826,8 +828,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         SendMessage message = InlineKeyboardBuilder.create(chatID)
                 .setText("Choose command")
                 .row()
-                .button("SHOW MOVIES", "showmovies")
-                .button("SHOW SEANCES", "showseances")
+                .button("Show movies", "showmovies")
+                .button("Show seances", "showseances")
                 .endRow()
                 .build();
         try {
