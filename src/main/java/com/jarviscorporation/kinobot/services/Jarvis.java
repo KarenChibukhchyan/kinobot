@@ -24,6 +24,9 @@ import java.util.*;
 
 public class Jarvis extends TelegramLongPollingBot implements ApplicationContextAware {
 
+    //storage of Jarvis instances
+    public static Map<Long, Jarvis> map = new HashMap<>();
+
     //variable for storing current chat ID
     private Long chatID;
 
@@ -31,50 +34,62 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     // and last message time as value
     private Map<Long, Long> chatIDs = new HashMap<>();
 
+
     //application context variable which is retrieved in
     //setApplicationContext() method
-    private ApplicationContext applicationContext;
+    private static ApplicationContext applicationContext;
+    private static JdbcTemplate jdbcTemplate;
+    private static MovieMapper movieMapper;
+    private static SeanceMapper seanceMapper;
 
-    private JdbcTemplate jdbcTemplate;
-
-    private MovieMapper movieMapper;
-    private SeanceMapper seanceMapper;
-    private boolean enteringMode = false;
-
-    private int row = 0;
-    private Integer[] seats = null;
-    private int hallSizeRow ;
+    //flag which indicates,
+    //whether digits input mode is enabled or not
+    private boolean enteringMode;
+    private int hallSizeRow;
     private int hallSizeSeats;
     private int hallID;
     private int seanceID;
-    private String movieID;
-    /**
-     * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
-     * @param
-     */
+    private int row;
+
     public Jarvis() {
 
-        row = 0;
-        seats = null;
-
+        enteringMode = false;
         hallSizeRow = 0;
         hallSizeSeats = 0;
-
         hallID = 0;
         seanceID = 0;
+        row = 0;
     }
 
+    /**
+     * MAIN METHOD WHICH RECEIVES EVENTS FROM TELEGRAM BOT
+     * and for each chat creates new instance of Jarvis
+     *  @param
+     */
     public void onUpdateReceived(Update update) {
 
         getChatID(update);
+        if (map.keySet().contains(chatID))
+            map.get(chatID).process(update);
+
+        else {
+            map.put(chatID, new Jarvis());
+            map.get(chatID).process(update);
+        }
+    }
+
+    //processor of incoming messages and button clicking
+    public void process(Update update){
+
+        getChatID(update);
+
         String responseData = null;
         String responseMessage = null;
 
         if (update.hasCallbackQuery()) {
 
             enteringMode = false;
-            row = 0;
-            seats = null;
+
             if (update.getCallbackQuery().getData() != null) {
                 responseData = update.getCallbackQuery().getData();
             }
@@ -89,7 +104,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             proposeBooking(update);
             return;
         }
-//this is case when button pressed not from message
+        //this is case when button pressed not from message
         //for example from photo message
         if (responseData != null) {
             switch (responseData) {
@@ -155,6 +170,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         if (responseData != null && responseMessage != null && responseMessage.contains("Confirm booking")) {
             addBook(responseData);
         }
+
+
     }
 
     private void addBook(String responseData) {
@@ -197,6 +214,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     .button("Start new booking?", "startagain")
                     .endRow()
                     .build();
+            this.row=0;
             try{
                 execute(message);
             } catch(TelegramApiException e1){
@@ -205,7 +223,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 }
             return;
         }
-
+        this.row=0;
     SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
             .setText("You've just booked the above mentioned place(s). " +
                     "\nYour booking code is " + "*" + number + "*" +
@@ -271,7 +289,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 list.clear();
                 list.addAll(set);
 
-                seats = list.toArray(new Integer[list.size()]);
+                Integer[] seats = list.toArray(new Integer[list.size()]);
 
                 for (int i = 0; i < seats.length; i++) {
 
@@ -514,7 +532,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                                 "on t1.movieID = t2.mm\n" +
                                 "order by startTime asc ",
                         seanceMapper);
-                message.setText("Today seances:");
+                message.setText("Today's seances:");
                 break;
             }
             case ("tomorrow"):{
@@ -750,10 +768,18 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             chatIDs.put(chatID, now);
             return false;
         }
-        if (update.hasMessage() && update.getMessage().hasText() && !enteringMode) {
-            invalidCommand();
-            chatIDs.put(chatID, now);
-            return false;
+        if (update.hasMessage() && update.getMessage().hasText()){
+
+            if(update.getMessage().getText().equals("/start")){
+                showSeancesAndMovies(update);
+                return false;
+            }
+            if (!enteringMode) {
+                invalidCommand();
+                chatIDs.put(chatID, now);
+                return false;
+            }
+
         }
         return true;
     }
