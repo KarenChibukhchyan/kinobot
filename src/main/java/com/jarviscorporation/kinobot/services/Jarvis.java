@@ -1,8 +1,10 @@
 package com.jarviscorporation.kinobot.services;
 
 import com.jarviscorporation.kinobot.domain.Movie;
+import com.jarviscorporation.kinobot.domain.MovieInfo;
 import com.jarviscorporation.kinobot.domain.Place;
 import com.jarviscorporation.kinobot.domain.Seance;
+import com.jarviscorporation.kinobot.mappers.MovieInfoMapper;
 import com.jarviscorporation.kinobot.mappers.MovieMapper;
 import com.jarviscorporation.kinobot.mappers.PlaceMapper;
 import com.jarviscorporation.kinobot.mappers.SeanceMapper;
@@ -98,6 +100,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             }
         }
 
+        if (!enteringMode) row = 0;
+
         if (!validaion(update)) return;
         //case when user enters row and seat numbers for booking
         if (enteringMode && update.hasMessage() && update.getMessage().getText() != null) {
@@ -133,13 +137,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         //this is case when button was pressed from message with button
         if (responseMessage != null)
             switch (responseMessage) {
+
                 case ("Choose command"): {
                     if (responseData.equals("showseances")) showDays();
                     else showMovies();
                     return;
                 }
                 case ("Movies:"): {
-                    showSeancesforMovie(responseData);
+                    showMovieDescription(responseData);
                     return;
                 }
                 case ("Invalid command. Please choose button or start again"): {
@@ -167,7 +172,12 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             return;
         }
 
+        if (responseMessage!=null && responseMessage.contains("Age restriction")
+                && !responseData.equals("backtomovielist")){
+            showSeancesforMovie(responseData);
+        }
         if (responseData != null && responseMessage != null && responseMessage.contains("Confirm booking")) {
+
             addBook(responseData);
         }
 
@@ -346,7 +356,9 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 for (int i = 0; i < seats.length; i++) {
                     placesToDraw[row - 1][seats[i] - 1] = true;
                 }
-
+                System.out.println("row = "+row);
+                System.out.println("seats = "+Arrays.toString(seats));
+                row = 0;
                 ImageCreator.createImage(hallID, seanceID, placesToDraw, "greem");
 
                 SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
@@ -603,9 +615,9 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
     private void showSeancesforMovie(String movie) {
 
-        List<Seance> seances = null;
+        List<Seance> seances =
 
-                seances = jdbcTemplate.query(
+                jdbcTemplate.query(
                         "select seanceID,hallID,seances.movieID,startTime,duration,movies.movie\n"+
                         "from seances\n"+
                         "join movies\n"+
@@ -675,10 +687,71 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     }
 
     /**
-     *  TODO ARMAN !!!!!!!!!!!!!!!!!!!!!!!!!
-     * @param data
+     *  @param data
      */
     private void showMovieDescription(String data) {
+
+        MovieInfoMapper movieInfoMapper = new MovieInfoMapper();
+
+        List<MovieInfo> movieInfos =
+                jdbcTemplate.query(
+                        "select m.movieID, m.actors,m.ageRestriction,m.director,\n"+
+                        "m.genre,m.pathToPoster,m.productionYear,m.ranking,movies.movie\n"+
+                        "from movies\n"+
+                        "join movieinfo m on movies.movieID = m.movieID\n"+
+                        "where movie = "+"\""+data+"\"",
+                        movieInfoMapper);
+
+        //    src\main\resources\posters\Godfather
+
+        if (movieInfos.isEmpty()){
+            SendMessage message = InlineKeyboardBuilder.create(chatID)
+            .setText("Cannot retrieve movie info...\nStart again")
+                    .row()
+                    .button("Start again", "startagain")
+                    .endRow()
+                    .build();
+            try {
+                execute(message);
+                return;
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+        MovieInfo movieInfo = movieInfos.get(0);
+
+        SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
+        File file = new File(movieInfo.getPathToPoster()+"/"+
+                movieInfo.getMovie()+".jpg");
+
+        sendPhoto.setNewPhoto(file);
+
+        SendMessage message = InlineKeyboardBuilder
+                .create(chatID)
+                .setText(
+                   "Movie : " + movieInfo.getMovie() +"\n" +
+                   "Production year : " + movieInfo.getProductionYear() +"\n" +
+                   "Genre : " + movieInfo.getGenre() +"\n" +
+                   "Director : " + movieInfo.getDirector() +"\n" +
+                   "Actors : " + movieInfo.getActors() +"\n" +
+                   "Ranking : " + movieInfo.getRanking() +"\n" +
+                   "Age restriction : " + movieInfo.getAgeRestriction() +"\n"
+                   )
+                .row()
+                .button("Go to seances",movieInfo.getMovie())
+                .button("Back to movie list", "backtomovielist")
+                .endRow()
+                .build();
+
+        try {
+            sendPhoto(sendPhoto);
+            execute(message);
+            return;
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+            return;
+        }
     }
 
     /**
