@@ -1,13 +1,7 @@
 package com.jarviscorporation.kinobot.services;
 
-import com.jarviscorporation.kinobot.domain.Movie;
-import com.jarviscorporation.kinobot.domain.MovieInfo;
-import com.jarviscorporation.kinobot.domain.Place;
-import com.jarviscorporation.kinobot.domain.Seance;
-import com.jarviscorporation.kinobot.mappers.MovieInfoMapper;
-import com.jarviscorporation.kinobot.mappers.MovieMapper;
-import com.jarviscorporation.kinobot.mappers.PlaceMapper;
-import com.jarviscorporation.kinobot.mappers.SeanceMapper;
+import com.jarviscorporation.kinobot.domain.*;
+import com.jarviscorporation.kinobot.mappers.*;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -15,13 +9,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.telegram.telegrambots.api.methods.ParseMode;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.api.methods.updatingmessages.EditMessageReplyMarkup;
+import org.telegram.telegrambots.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class Jarvis extends TelegramLongPollingBot implements ApplicationContextAware {
@@ -132,6 +131,11 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     }
                     return;
                 }
+                case ("showmybooks"):{
+                    showMyBooks(update);
+                    return;
+                }
+
             }
         }
         //this is case when button was pressed from message with button
@@ -158,11 +162,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 case ("Today's seances:"):
                 case ("Tomorrow's seances:"):
                 case ("Day after tomorrow's seances:"): {
-                    hallID = Integer.parseInt(responseData.substring(0, 1));
-                    seanceID = Integer.parseInt(responseData.substring(1));
+                    String[] strings = responseData.split(",");
+
+                    hallID = Integer.parseInt(strings[0]);
+                    seanceID = Integer.parseInt(strings[1]);
                     showImageForBooking(hallID, seanceID);
                     return;
                 }
+
             }
 
         if (responseMessage != null && responseMessage.contains("Seances for")) {
@@ -171,17 +178,156 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             showImageForBooking(hallID, seanceID);
             return;
         }
-
+        if (responseMessage != null && responseMessage.contains("Book code")) {
+            deleteBook(update);
+            return;
+        }
         if (responseMessage!=null && responseMessage.contains("Age restriction")
                 && !responseData.equals("backtomovielist")){
             showSeancesforMovie(responseData);
         }
         if (responseData != null && responseMessage != null && responseMessage.contains("Confirm booking")) {
 
+            EditMessageReplyMarkup editMessageReplyMarkup = new EditMessageReplyMarkup();
+            editMessageReplyMarkup.setChatId(chatID);
+            editMessageReplyMarkup.setMessageId(update.getCallbackQuery().getMessage().getMessageId());
+            editMessageReplyMarkup.setReplyMarkup(null);
+
+            EditMessageText text = new EditMessageText();
+            text.setChatId(chatID);
+            text.setMessageId(update.getCallbackQuery().getMessage().getMessageId());
+            String text1 = update.getCallbackQuery().getMessage().getText();
+            text1 = text1.substring(0,text1.indexOf("Confirm"));
+            text.setText(text1);
+            try {
+                editMessageReplyMarkup(editMessageReplyMarkup);
+                editMessageText(text);
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
             addBook(responseData);
         }
 
 
+    }
+
+    private void deleteBook(Update update) {
+
+        jdbcTemplate.update(
+                "UPDATE books set recordStatus= \"deleted\""+
+                "where bookCode="+update.getCallbackQuery().getData());
+
+        EditMessageReplyMarkup editMessageReplyMarkup = new EditMessageReplyMarkup();
+
+        editMessageReplyMarkup.setChatId(chatID);
+
+        editMessageReplyMarkup.setMessageId(update.getCallbackQuery().getMessage().getMessageId());
+
+        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        List<InlineKeyboardButton> row = new ArrayList<>();
+
+        row.add(new InlineKeyboardButton().setText("Start again").setCallbackData("startagain"));
+
+        keyboard.add(row);
+
+        keyboardMarkup.setKeyboard(keyboard);
+
+        editMessageReplyMarkup.setReplyMarkup(keyboardMarkup);
+
+        EditMessageText text = new EditMessageText();
+        text.setChatId(chatID);
+        text.setMessageId(update.getCallbackQuery().getMessage().getMessageId());
+        String text1 = update.getCallbackQuery().getMessage().getText()+"\nDeleted!";
+        text.setText(text1);
+        try {
+            editMessageText(text);
+            editMessageReplyMarkup(editMessageReplyMarkup);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+        return;
+    }
+
+    private void showMyBooks(Update update) {
+        List<Book> books =
+                jdbcTemplate.query(
+                        "select bookID, s.seanceID, row, seat, bookCode, status, recordStatus,\n"+
+                        "chatID, hallID, startTime, duration, price, movie\n"+
+                        "from books join seances s on books.seanceID = s.seanceID\n"+
+                        "join movies m on s.movieID = m.movieID\n"+
+                        "where chatID = "+chatID+
+                        "\nand recordStatus = \"active\"", new BookMapper()
+                );
+        if (books.isEmpty()){
+            SendMessage message = InlineKeyboardBuilder.create(chatID)
+                    .setText("You dont have any books")
+                    .row()
+                    .button("Start again","startagain")
+                    .endRow()
+                    .build();
+            try {
+                execute(message);
+                return;
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        Set<Long> set = new HashSet<>();
+
+        for(Book book:books){
+            set.add(book.getBookCode());
+        }
+
+        StringBuilder text;
+
+        for (long l : set){
+            text = new StringBuilder();
+
+            for (Book book : books){
+                if (book.getBookCode()== l) {
+                    text.append("Movie " + book.getMovie());
+                    text.append("\nTime " + book.getStartTime())
+                            .append("\nHall "+book.getHallID())
+                            .append("\nBook code "+book.getBookCode());
+                    text.append("\nRow "+book.getRow());
+
+                    break;
+                }
+            }
+            text.append("\nSeat(s) ");
+
+            for (Book book : books){
+                if (book.getBookCode()== l) {
+                    text.append(book.getSeat());
+                    text.append(",");
+
+                }
+            }
+            String str = text.toString();
+            if (str.charAt(str.length()-1)==','){
+                str=str.substring(0,str.length()-1);
+            }
+
+            SendMessage message = InlineKeyboardBuilder
+                    .create(chatID)
+                    .setText(str)
+                    .row()
+                    .button("Delete book",Long.toString(l))
+                    .endRow()
+                    .build();
+
+
+            try {
+                execute(message);
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private void addBook(String responseData) {
@@ -212,9 +358,10 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                                 "seat," +
                                 "bookCode," +
                                 "status," +
-                                "recordStatus) " +
-                                "VALUES (?,?,?,?,?,?)",
-                        seanceID, row, seats[i], number, "booked","active");
+                                "recordStatus," +
+                                "chatID) " +
+                                "VALUES (?,?,?,?,?,?,?)",
+                        seanceID, row, seats[i], number, "booked","active",chatID);
             }
         }catch (Exception e){
             SendMessage message = InlineKeyboardBuilder
@@ -255,15 +402,28 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
         String text = update.getMessage().getText();
 
-        try {
+
             //case for obtaining row
             if (row == 0) {
-
-                row = Integer.parseInt(text);
-                if (row <= 0 || row > hallSizeRow) {
-                    row = 0;
-                    throw new NumberFormatException();
+                try {
+                    row = Integer.parseInt(text);
+                    if (row <= 0 || row > hallSizeRow) {
+                        row = 0;
+                        throw new NumberFormatException();
+                    }
+                } catch (NumberFormatException e) {
+                    SendMessage message = new SendMessage().setText("Not valid row number\n" +
+                            "Please enter row in interval between 1 and " + hallSizeRow +
+                            "\nEnter row again").setChatId(chatID);
+                    try {
+                        execute(message);
+                        return;
+                    } catch (TelegramApiException e1) {
+                        e1.printStackTrace();
+                        return;
+                    }
                 }
+
                 SendMessage message = new SendMessage()
                         .setText("Your row is " + row + "\nPlease enter seats\n" +
                                 "You can use following formats\n" +
@@ -279,19 +439,35 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
             //case for obtaining seats
             else {
+
                 List<Integer> list = new ArrayList<>();
 
-                if (text.contains(",") && !text.contains("-")) {
-                    list = commaSplitter(text);
+                try {
 
-                } else if (text.contains("-") && !text.contains(",")) {
-                    list = defisSplitter(text);
-                } else if (text.contains(",") && text.contains("-")) {
-                    list = commaSplitter(text, true);
-                } else {
-                    int i = Integer.parseInt(text);
-                    if (i <= 0 || i > hallSizeSeats) throw new NumberFormatException();
-                    list.add(i);
+                    if (text.contains(",") && !text.contains("-")) {
+                        list = commaSplitter(text);
+                    } else if (text.contains("-") && !text.contains(",")) {
+                        list = defisSplitter(text);
+                    } else if (text.contains(",") && text.contains("-")) {
+                        list = commaSplitter(text, true);
+                    } else {
+                        int i = Integer.parseInt(text);
+                        if (i <= 0 || i > hallSizeSeats) throw new NumberFormatException();
+                        list.add(i);
+
+                    }
+                }catch (NumberFormatException e) {
+                    SendMessage sendMessage = new SendMessage()
+                            .setText("Invalid format. Please use correct format\nEnter row")
+                            .setChatId(chatID);
+
+                    try {
+                        execute(sendMessage);
+                        row=0;
+                        return;
+                    } catch (TelegramApiException e1) {
+                        e1.printStackTrace();
+                    }
                 }
                 list.sort(Comparator.naturalOrder());
 
@@ -315,7 +491,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     if (count != 0) {
 
                         SendMessage sendMessage = new SendMessage()
-                                .setText("Place(s) is already occupied. Try again" +
+                                .setText("Row " + row + " seat "+seats[i]+" is already occupied. Try again" +
                                         "\nEnter row:")
                                 .setChatId(chatID);
                         try {
@@ -341,6 +517,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         seatsString.append(seats[i] + "z");
                     }
                 }
+
                 SendMessage message = InlineKeyboardBuilder.create(chatID)
                         .setText("Your places: " +
                                 "row=" + row +
@@ -356,9 +533,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 for (int i = 0; i < seats.length; i++) {
                     placesToDraw[row - 1][seats[i] - 1] = true;
                 }
-                System.out.println("row = "+row);
-                System.out.println("seats = "+Arrays.toString(seats));
-                row = 0;
+
+                 row = 0;
                 ImageCreator.createImage(hallID, seanceID, placesToDraw, "greem");
 
                 SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
@@ -374,19 +550,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     e.printStackTrace();
                 }
             }
-        }   catch (NumberFormatException e) {
-            SendMessage sendMessage = new SendMessage()
-                    .setText("Invalid format. Please use correct format\nEnter row")
-                    .setChatId(chatID);
 
-            try {
-                execute(sendMessage);
-                row=0;
-                return;
-            } catch (TelegramApiException e1) {
-                e1.printStackTrace();
-            }
-        }
     }
 
     private List<Integer> defisSplitter(String text) {
@@ -535,7 +699,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         switch (day) {
             case ("today"): {
                 seances = jdbcTemplate.query(
-                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                        "select seanceID,hallID,movieID,startTime,duration,movie,price from\n" +
                                 "(select * from seances\n" +
                                 "where startTime between now() and (select addtime(CURDATE(), '23:59:59') as t)" +
                                 "and expirationStatus != \"deleted\") as t1\n" +
@@ -549,7 +713,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             }
             case ("tomorrow"):{
                 seances = jdbcTemplate.query(
-                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                        "select seanceID,hallID,movieID,startTime,duration,movie,price from\n" +
                                 "(select * from seances\n" +
                                 "where startTime between (select addtime(CURDATE()+1, '00:00:00') as t) " +
                                 "and (select addtime(CURDATE()+1, '23:59:59') as t1)" +
@@ -564,7 +728,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             }
             case ("dayaftertomorrow"):{
                 seances = jdbcTemplate.query(
-                        "select seanceID,hallID,movieID,startTime,duration,movie from\n" +
+                        "select seanceID,hallID,movieID,startTime,duration,movie,price from\n" +
                                 "(select * from seances\n" +
                                 "where startTime between (select addtime(CURDATE()+2, '00:00:00') as t) " +
                                 "and (select addtime(CURDATE()+2, '23:59:59') as t1) " +
@@ -593,7 +757,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             return;
         }
 
-
         message.setReplyMarkup(new InlineKeyboardMarkup());
 
         for (Seance seance : seances) {
@@ -601,8 +764,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             time = time.substring(0, time.length() - 3);
             addButton(
                     message,
-                    time + " Hall#" + seance.getHallID() + " " + seance.getMovie(),
-                    Integer.toString(seance.getHallID()) + seance.getSeanceID()
+                    time + " Hall#" + seance.getHallID() + " " + seance.getMovie()+" "+seance.getPrice()+" AMD",
+                    Integer.toString(seance.getHallID()) + ","+seance.getSeanceID()+","+seance.getPrice()
             );
         }
         addButton(message, "Start again", "startagain");
@@ -618,7 +781,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         List<Seance> seances =
 
                 jdbcTemplate.query(
-                        "select seanceID,hallID,seances.movieID,startTime,duration,movies.movie\n"+
+                        "select seanceID,hallID,seances.movieID,startTime,duration,movies.movie,price\n"+
                         "from seances\n"+
                         "join movies\n"+
                         "on seances.movieID = movies.movieID\n"+
@@ -721,11 +884,11 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         }
         MovieInfo movieInfo = movieInfos.get(0);
 
-        SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
-        File file = new File(movieInfo.getPathToPoster()+"/"+
-                movieInfo.getMovie()+".jpg");
-
-        sendPhoto.setNewPhoto(file);
+//        SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
+//        File file = new File(movieInfo.getPathToPoster()+"/"+
+//                movieInfo.getMovie()+".jpg");
+//
+//        sendPhoto.setNewPhoto(file);
 
         SendMessage message = InlineKeyboardBuilder
                 .create(chatID)
@@ -744,14 +907,27 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 .endRow()
                 .build();
 
-        try {
-            sendPhoto(sendPhoto);
-            execute(message);
+        SendMessage omdbMessage = null;
+
+            try {
+                omdbMessage = new SendMessage()
+                        .setChatId(chatID)
+                        .setText(OmdbConnector.sendGet(movieInfo.getMovie()));
+
+                SendMessage youtubeMessage = new SendMessage()
+                        .setChatId(chatID)
+                        .setText("https://www.youtube.com/watch?v=" + YoutubeConnector.sendTrailer(movieInfo.getMovie()));
+
+                execute(omdbMessage);
+                execute(youtubeMessage);
+                execute(message);
             return;
         } catch (TelegramApiException e) {
             e.printStackTrace();
             return;
-        }
+        }catch (IOException e1){
+                e1.printStackTrace();
+            }
     }
 
     /**
@@ -841,22 +1017,55 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             chatIDs.put(chatID, now);
             return false;
         }
-        if (update.hasMessage() && update.getMessage().hasText()){
+        if (update.hasMessage() && update.getMessage().hasText()) {
 
-            if(update.getMessage().getText().equals("/start")){
+            if (update.getMessage().getText().equals("/start")) {
                 showSeancesAndMovies(update);
                 return false;
             }
             if (!enteringMode) {
-                invalidCommand();
-                chatIDs.put(chatID, now);
+
+                try {
+                    SendMessage youtubeMessage = new SendMessage()
+                            .setChatId(chatID)
+                            .setText("https://www.youtube.com/watch?v="
+                                    + YoutubeConnector.sendTrailer(update.getMessage().getText()));
+
+                    InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+
+                    List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+
+                    row.add(new InlineKeyboardButton().setText("Start again").setCallbackData("startagain"));
+
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+
+                    youtubeMessage.setReplyMarkup(keyboardMarkup);
+
+                    execute(youtubeMessage);
+                } catch (Exception e) {
+
+                    SendMessage errorMessage = new SendMessage()
+                            .setChatId(chatID)
+                            .setText("Unable to retrieve movie trailer...");
+                    addButton(errorMessage, "Start again", "startagain");
+                    try {
+                        execute(errorMessage);
+                    } catch (TelegramApiException e1) {
+                        e1.printStackTrace();
+                    }
+
+
+                }
+
                 return false;
             }
-
         }
         return true;
     }
-
     /**
      * shows invalid command message and offers start again
      */
@@ -903,11 +1112,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
         message = new SendMessage()
                 .setText("Hello and welcome to Kinohall!\n" +
-                        "My name is Jarvis and I'm your Kinobot.\n" +
+                        "My name is Jarvis and I'm your *Kinobot*\n" +
                         "I'll help you book tickets\n" +
                         "For navigation through menu use buttons below\n" +
-                        "Please note that buttons are active for half an hour")
+                        "Please note that buttons are active for half an hour\n"+
+                        "*Additional feature for You:*\n"+
+                        "Get any movie trailer from Youtube by simple typing movie name here and pressing Enter!")
                 .setChatId(chatID);
+        message.setParseMode(ParseMode.MARKDOWN);
         try {
             execute(message);
             showSeancesAndMovies(update);
@@ -929,6 +1141,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 .row()
                 .button("Show movies", "showmovies")
                 .button("Show seances", "showseances")
+                .button("Show my books", "showmybooks")
                 .endRow()
                 .build();
         try {

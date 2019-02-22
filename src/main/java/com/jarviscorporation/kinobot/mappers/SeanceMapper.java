@@ -20,6 +20,7 @@ public class SeanceMapper implements RowMapper {
         seance.setStartTime(resultSet.getTime("startTime"));
         seance.setDuration(resultSet.getInt("duration"));
         seance.setMovie(resultSet.getString("movie"));
+        seance.setPrice(resultSet.getInt("price"));
 
 
         return seance;

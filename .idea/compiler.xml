@@ -9,5 +9,8 @@
         <module name="kinobot" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="adminka" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>

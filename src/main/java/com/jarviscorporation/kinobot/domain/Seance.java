@@ -16,6 +16,7 @@ public class Seance {
     private Time startTime;
     private int duration;
     private String movie;
+    private int price;
 
     public Date getStartDate() {
         return startDate;
@@ -83,5 +84,12 @@ public class Seance {
 
     public String getMovie(){
         return movie;
+    }
+
+    public void setPrice(int price) {
+        this.price = price;
+    }
+    public int getPrice(){
+        return price;
     }
 }
