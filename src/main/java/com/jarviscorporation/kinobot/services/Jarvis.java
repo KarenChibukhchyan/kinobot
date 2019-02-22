@@ -228,8 +228,10 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
         List<InlineKeyboardButton> row = new ArrayList<>();
+        int c = 0x21A9;
 
-        row.add(new InlineKeyboardButton().setText("Start again").setCallbackData("startagain"));
+        String g = Character.toString((char)c);
+        row.add(new InlineKeyboardButton().setText("Again "+g).setCallbackData("startagain"));
 
         keyboard.add(row);
 
@@ -262,10 +264,13 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         "\nand recordStatus = \"active\"", new BookMapper()
                 );
         if (books.isEmpty()){
+            int c = 0x21A9;
+
+            String g = Character.toString((char)c);
             SendMessage message = InlineKeyboardBuilder.create(chatID)
                     .setText("You dont have any books")
                     .row()
-                    .button("Start again","startagain")
+                    .button("Again "+g,"startagain")
                     .endRow()
                     .build();
             try {
@@ -312,12 +317,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             if (str.charAt(str.length()-1)==','){
                 str=str.substring(0,str.length()-1);
             }
+            int c = 0x274E;
+
+            String g = Character.toString((char)c);
 
             SendMessage message = InlineKeyboardBuilder
                     .create(chatID)
                     .setText(str)
                     .row()
-                    .button("Delete book",Long.toString(l))
+                    .button("Delete book " + g,Long.toString(l))
                     .endRow()
                     .build();
 
@@ -364,11 +372,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                         seanceID, row, seats[i], number, "booked","active",chatID);
             }
         }catch (Exception e){
+            int c = 0x21A9;
+
+            String nn = Character.toString((char)c);
             SendMessage message = InlineKeyboardBuilder
                     .create(chatID)
                     .setText("Cannot complete booking!")
                     .row()
-                    .button("Start new booking?", "startagain")
+                    .button("Again? "+nn, "startagain")
                     .endRow()
                     .build();
             this.row=0;
@@ -381,13 +392,16 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             return;
         }
         this.row=0;
+        int c = 0x21A9;
+
+        String r = Character.toString((char)c);
     SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
             .setText("You've just booked the above mentioned place(s). " +
                     "\nYour booking code is " + "*" + number + "*" +
                     "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +
                     "\n earlier than 30 minutes before beginning of movie seance!")
             .row()
-            .button("Start new booking?", "startagain")
+            .button("Again? "+r, "startagain")
             .endRow()
             .build();
         sendMessage.setParseMode(ParseMode.MARKDOWN);
@@ -518,14 +532,21 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     }
                 }
 
+                int c = 0x2705;
+                String g = Character.toString((char)c);
+
+                int b = 0x21A9;
+                String s = Character.toString((char)b);
+
+                System.out.println("g = "+g);
                 SendMessage message = InlineKeyboardBuilder.create(chatID)
                         .setText("Your places: " +
                                 "row=" + row +
                                 "  seats= " + str.toString() +
                                 "\nConfirm booking?")
                         .row()
-                        .button("Confirm", seanceID + "," + row + "," + seatsString)
-                        .button("Start again", "startagain")
+                        .button("Confirm "+g, seanceID + "," + row + "," + seatsString)
+                        .button("Again "+s, "startagain")
                         .endRow()
                         .build();
 
@@ -668,11 +689,17 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
         List<InlineKeyboardButton> row = new ArrayList<>();
 
+        int c = 0x2197;
+
+        String g = Character.toString((char)c);
+
         row.add(new InlineKeyboardButton()
-                .setText("Click to book places")
+                .setText("Book "+g)
                 .setCallbackData("pressforbookingplaces"));
+        int cc = 0x21A9;
+        String gg = Character.toString((char)cc);
         row.add(new InlineKeyboardButton()
-                .setText("Start again?")
+                .setText("Again "+gg)
                 .setCallbackData("startagain"));
 
         keyboard.add(row);
@@ -768,7 +795,9 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     Integer.toString(seance.getHallID()) + ","+seance.getSeanceID()+","+seance.getPrice()
             );
         }
-        addButton(message, "Start again", "startagain");
+        int c = 0x21A9;
+        String g = Character.toString((char)c);
+        addButton(message, "Again "+g, "startagain");
         try {
             execute(message);
         } catch (TelegramApiException e) {
@@ -820,7 +849,9 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     Integer.toString(seance.getHallID()) + seance.getSeanceID()
             );
         }
-        addButton(message,"Back to movie list", "backtomovielist");
+        int k = 0x21A9;
+        String g = Character.toString((char)k);
+        addButton(message,"To movie list "+g, "backtomovielist");
         try {
             execute(message);
         } catch (TelegramApiException e) {
@@ -868,10 +899,13 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         //    src\main\resources\posters\Godfather
 
         if (movieInfos.isEmpty()){
+            int c = 0x21A9;
+
+            String g = Character.toString((char)c);
             SendMessage message = InlineKeyboardBuilder.create(chatID)
             .setText("Cannot retrieve movie info...\nStart again")
                     .row()
-                    .button("Start again", "startagain")
+                    .button("Again "+c, "startagain")
                     .endRow()
                     .build();
             try {
@@ -884,11 +918,11 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         }
         MovieInfo movieInfo = movieInfos.get(0);
 
-//        SendPhoto sendPhoto = new SendPhoto().setChatId(chatID);
-//        File file = new File(movieInfo.getPathToPoster()+"/"+
-//                movieInfo.getMovie()+".jpg");
-//
-//        sendPhoto.setNewPhoto(file);
+        int c = 0x23E9;
+        int j = 0x21A9;
+
+        String g = Character.toString((char)c);
+        String h = Character.toString((char)j);
 
         SendMessage message = InlineKeyboardBuilder
                 .create(chatID)
@@ -902,8 +936,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                    "Age restriction : " + movieInfo.getAgeRestriction() +"\n"
                    )
                 .row()
-                .button("Go to seances",movieInfo.getMovie())
-                .button("Back to movie list", "backtomovielist")
+                .button("To seances "+g,movieInfo.getMovie())
+                .button("To movie list "+h, "backtomovielist")
                 .endRow()
                 .build();
 
@@ -951,12 +985,15 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             return;
         }
         SendMessage message = new SendMessage().setChatId(chatID).setText("Movies:");
+        int b = 0x21A9;
+        String s = Character.toString((char)b);
 
         message.setReplyMarkup(new InlineKeyboardMarkup());
         for (Movie movie : movies) {
             addButton(message, movie.getMovie(), movie.getMovie());
         }
-        addButton(message,"Start again","startagain");
+
+        addButton(message,"Again "+s,"startagain");
         try {
             execute(message);
         } catch (TelegramApiException e) {
@@ -1037,7 +1074,10 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
                     List<InlineKeyboardButton> row = new ArrayList<>();
 
-                    row.add(new InlineKeyboardButton().setText("Start again").setCallbackData("startagain"));
+                    int c = 0x21A9;
+
+                    String g = Character.toString((char)c);
+                    row.add(new InlineKeyboardButton().setText("Again "+g).setCallbackData("startagain"));
 
                     keyboard.add(row);
 
@@ -1051,7 +1091,22 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                     SendMessage errorMessage = new SendMessage()
                             .setChatId(chatID)
                             .setText("Unable to retrieve movie trailer...");
-                    addButton(errorMessage, "Start again", "startagain");
+                    InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+
+                    List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+                    int c = 0x21A9;
+
+                    String g = Character.toString((char)c);
+                    row.add(new InlineKeyboardButton().setText("Again "+g).setCallbackData("startagain"));
+
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+
+                    errorMessage.setReplyMarkup(keyboardMarkup);
+
                     try {
                         execute(errorMessage);
                     } catch (TelegramApiException e1) {
@@ -1070,11 +1125,13 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      * shows invalid command message and offers start again
      */
     private void invalidCommand() {
+        int c = 0x21A9;
 
+        String g = Character.toString((char)c);
         SendMessage message = InlineKeyboardBuilder.create(chatID)
                 .setText("Invalid command. Please choose button or start again")
                 .row()
-                .button("START AGAIN?", "startagain")
+                .button("Again "+g, "startagain")
                 .endRow()
                 .build();
 
@@ -1109,10 +1166,12 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private void showWelcomeMessage(Update update) {
 
         SendMessage message;
+        int c = 0x270C;
 
+        String g = Character.toString((char)c);
         message = new SendMessage()
-                .setText("Hello and welcome to Kinohall!\n" +
-                        "My name is Jarvis and I'm your *Kinobot*\n" +
+                .setText("Hello and welcome to Kinohall! "+g+"\n" +
+                        "I'm your *Kinohall Bot*\n" +
                         "I'll help you book tickets\n" +
                         "For navigation through menu use buttons below\n" +
                         "Please note that buttons are active for half an hour\n"+
@@ -1136,12 +1195,20 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
      */
     private void showSeancesAndMovies(Update update) {
 
+        int a = 0x1F3A6;
+        int b = 0x1F3AC;
+        int c = 0x1F4D9;
+
+        String kamera = Character.toString((char)a);
+        String seans = Character.toString((char)b);
+        String kniga = Character.toString((char)c);
+
         SendMessage message = InlineKeyboardBuilder.create(chatID)
                 .setText("Choose command")
                 .row()
-                .button("Show movies", "showmovies")
-                .button("Show seances", "showseances")
-                .button("Show my books", "showmybooks")
+                .button("Movies", "showmovies")
+                .button("Seances", "showseances")
+                .button("My books", "showmybooks")
                 .endRow()
                 .build();
         try {
