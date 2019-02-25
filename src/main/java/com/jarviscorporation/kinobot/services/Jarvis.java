@@ -14,14 +14,12 @@ import org.telegram.telegrambots.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardButton;
-import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
+import java.util.List;
 
 public class Jarvis extends TelegramLongPollingBot implements ApplicationContextAware {
 
@@ -42,7 +40,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private static JdbcTemplate jdbcTemplate;
     private static MovieMapper movieMapper;
     private static SeanceMapper seanceMapper;
-
+    private static boolean firstTime = true;
     //flag which indicates,
     //whether digits input mode is enabled or not
     private boolean enteringMode;
@@ -60,6 +58,67 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         hallID = 0;
         seanceID = 0;
         row = 0;
+        if (firstTime){
+          new Thread(() -> checkBookExpiration()).start();
+        }
+
+
+    }
+
+    private void checkBookExpiration() {
+        firstTime = false;
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        Set<Long> set = new HashSet<>();
+        for (;;){
+            List<Book> books =
+                    jdbcTemplate.query(
+                                "select bookID, s.seanceID, row, seat, bookCode, status, recordStatus,\n"+
+                                    "chatID, hallID, startTime, duration, price, movie\n"+
+                                    "from books join seances s on books.seanceID = s.seanceID\n"+
+                                    "join movies m on s.movieID = m.movieID\n"+
+                                    "where to_seconds(s.startTime) - to_seconds(now())<3000\n"+
+                                    "and to_seconds(s.startTime)- to_seconds(now())>0\n"+
+                                    "and recordStatus = \"active\" and status = \"booked\"" +
+                                    "group by bookCode",
+                                     new BookMapper()
+                    );
+
+            if (!books.isEmpty()){
+                for (Book book : books) {
+                    if (!set.contains(book.getBookCode())){
+                        set.add(book.getBookCode());
+
+                        SendMessage message = new SendMessage()
+                            .setChatId(book.getChatID())
+                            .setText("Your book:" +
+                                    "\nbook code " + book.getBookCode()+
+                                    "\ndate "+book.getStartTime()+
+                                    "\nmovie "+book.getMovie()+
+                                    "\nhall "+book.getHallID()+
+                                    "\nis going to expired in less than 20 minutes" +
+                                    "\nPlease, confirm booking or cancel it"
+                            );
+                    try {
+                        execute(message);
+                    } catch (TelegramApiException e) {
+                        e.printStackTrace();
+                    }
+                }
+                }
+            }
+            try {
+                Thread.sleep(60_000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
     }
 
     /**
@@ -134,6 +193,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
                 case ("showmybooks"):{
                     showMyBooks(update);
                     return;
+
                 }
 
             }
@@ -845,7 +905,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             time = time.substring(0, time.length() - 3);
             addButton(
                     message,
-                    seance.getStartDate()+" "+time + " Hall#" + seance.getHallID(),
+                    seance.getStartDate()+" "+time + " Hall#" + seance.getHallID()+" "+seance.getPrice()+ " AMD",
                     Integer.toString(seance.getHallID()) + seance.getSeanceID()
             );
         }
@@ -1239,8 +1299,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     public String getBotToken() {
         return "705910420:AAGbp2pTLE7Uco9Dl0F1q2VHN5xc4JuDh4M";
     }
+
     /**
-     * this method invokes Application Context
      *
      * @param applicationContext
      * @throws BeansException
