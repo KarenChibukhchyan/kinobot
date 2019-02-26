@@ -1,3 +1,7 @@
+/**
+ * Image creator - class
+ * main processing method - createImage()
+ */
 package com.jarviscorporation.kinobot.services;
 
 import javax.imageio.ImageIO;

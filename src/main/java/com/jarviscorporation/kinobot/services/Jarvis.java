@@ -1,3 +1,6 @@
+/**
+ * MAIN PROCESSING CLASS
+ */
 package com.jarviscorporation.kinobot.services;
 
 import com.jarviscorporation.kinobot.domain.*;
@@ -24,6 +27,7 @@ import java.util.List;
 public class Jarvis extends TelegramLongPollingBot implements ApplicationContextAware {
 
     //storage of Jarvis instances
+    //for each chat - one instance
     public static Map<Long, Jarvis> map = new HashMap<>();
 
     //variable for storing current chat ID
@@ -40,10 +44,14 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
     private static JdbcTemplate jdbcTemplate;
     private static MovieMapper movieMapper;
     private static SeanceMapper seanceMapper;
+
+    //flag for running separate thread for notifications
     private static boolean firstTime = true;
+
     //flag which indicates,
     //whether digits input mode is enabled or not
     private boolean enteringMode;
+
     private int hallSizeRow;
     private int hallSizeSeats;
     private int hallID;
@@ -61,8 +69,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         if (firstTime){
           new Thread(() -> checkBookExpiration()).start();
         }
-
-
     }
 
     private void checkBookExpiration() {
@@ -75,6 +81,8 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         }
 
         Set<Long> set = new HashSet<>();
+
+        //endless loop with thread sleeping 1 minute
         for (;;){
             List<Book> books =
                     jdbcTemplate.query(
@@ -91,25 +99,25 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
 
             if (!books.isEmpty()){
                 for (Book book : books) {
-                    if (!set.contains(book.getBookCode())){
+                    if (!set.contains(book.getBookCode())) {
                         set.add(book.getBookCode());
 
                         SendMessage message = new SendMessage()
-                            .setChatId(book.getChatID())
-                            .setText("Your book:" +
-                                    "\nbook code " + book.getBookCode()+
-                                    "\ndate "+book.getStartTime()+
-                                    "\nmovie "+book.getMovie()+
-                                    "\nhall "+book.getHallID()+
-                                    "\nis going to expired in less than 20 minutes" +
-                                    "\nPlease, confirm booking or cancel it"
-                            );
-                    try {
-                        execute(message);
-                    } catch (TelegramApiException e) {
-                        e.printStackTrace();
+                                .setChatId(book.getChatID())
+                                .setText("Your book:" +
+                                        "\nbook code: " + book.getBookCode() +
+                                        "\ndate: " + book.getStartTime() +
+                                        "\nmovie: " + book.getMovie() +
+                                        "\nhall: " + book.getHallID() +
+                                        "\nis going to be expired in less than 20 minutes" +
+                                        "\nPlease, confirm book or cancel it"
+                                );
+                        try {
+                            execute(message);
+                        } catch (TelegramApiException e) {
+                            e.printStackTrace();
+                        }
                     }
-                }
                 }
             }
             try {
@@ -117,7 +125,6 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
         }
     }
 
@@ -455,7 +462,7 @@ public class Jarvis extends TelegramLongPollingBot implements ApplicationContext
         int c = 0x21A9;
 
         String r = Character.toString((char)c);
-    SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
+        SendMessage sendMessage = InlineKeyboardBuilder.create(chatID)
             .setText("You've just booked the above mentioned place(s). " +
                     "\nYour booking code is " + "*" + number + "*" +
                     "\n*NOTE!!!* Book will be automatically cancelled if you dont buy tickets" +

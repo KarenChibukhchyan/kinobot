@@ -1,3 +1,6 @@
+/**
+ * Mapper class for class Place instances
+ */
 package com.jarviscorporation.kinobot.mappers;
 
 import com.jarviscorporation.kinobot.domain.Place;

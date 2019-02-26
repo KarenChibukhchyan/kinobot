@@ -1,8 +1,8 @@
-package com.jarviscorporation.kinobot.services;
-
 /**
- * THIS CLASS IS BUILDER FOR MESSAGE WITH INLINE BUTTONS
+ * Class-builder for creating messages
+ * with inline buttons
  */
+package com.jarviscorporation.kinobot.services;
 
 import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;

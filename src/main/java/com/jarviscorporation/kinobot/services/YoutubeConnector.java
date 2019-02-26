@@ -1,3 +1,6 @@
+/**
+ * Gets youtube trailer
+ */
 package com.jarviscorporation.kinobot.services;
 
 import org.json.JSONArray;
@@ -22,18 +25,10 @@ public class YoutubeConnector {
 
         URL obj = new URL(url1);
         HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-        //HttpsURLConnectionImpl con = (HttpsURLConnectionImpl) obj.openConnection();
 
         con.setRequestMethod("GET");
 
         con.setRequestProperty("User-Agent", USER_AGENT);
-
-        int responseCode = con.getResponseCode();
-
-        //Terminal
-
-        System.out.println("\nSending 'GET' request to URL : " + url1);
-        System.out.println("Response Code : " + responseCode);
 
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(con.getInputStream()));
@@ -50,8 +45,6 @@ public class YoutubeConnector {
         JSONArray searchList = jsonObject.getJSONArray("items");
 
         String videoId = (searchList.getJSONObject(0)).getJSONObject("id").getString("videoId");
-        System.out.println("https://www.youtube.com/watch?v=" + videoId);
-
 
         return videoId;
 

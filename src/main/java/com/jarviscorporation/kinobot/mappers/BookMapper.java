@@ -1,7 +1,9 @@
+/**
+ * Mapper class for class Book instances
+ */
 package com.jarviscorporation.kinobot.mappers;
 
 import com.jarviscorporation.kinobot.domain.Book;
-import com.jarviscorporation.kinobot.domain.MovieInfo;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

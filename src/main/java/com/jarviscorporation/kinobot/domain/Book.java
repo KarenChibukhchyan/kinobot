@@ -1,7 +1,7 @@
+/**
+ * Book entity
+ */
 package com.jarviscorporation.kinobot.domain;
-
-import java.sql.Date;
-import java.sql.Time;
 
 public class Book {
     private int bookID;

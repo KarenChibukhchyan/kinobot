@@ -1,3 +1,6 @@
+/**
+ * Mapper class for class Seance instances
+ */
 package com.jarviscorporation.kinobot.mappers;
 
 import com.jarviscorporation.kinobot.domain.Movie;

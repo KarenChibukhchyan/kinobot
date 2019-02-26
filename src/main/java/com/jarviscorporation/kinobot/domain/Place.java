@@ -1,3 +1,6 @@
+/**
+ * Place entity
+ */
 package com.jarviscorporation.kinobot.domain;
 
 public class Place {

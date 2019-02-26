@@ -1,3 +1,6 @@
+/**
+ * Seance entity
+ */
 package com.jarviscorporation.kinobot.domain;
 
 import java.sql.Date;

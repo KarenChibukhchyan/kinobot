@@ -1,3 +1,6 @@
+/**
+ * CLASS IS BUILDER FOR MESSAGE WITH INLINE BUTTONS
+ */
 package com.jarviscorporation.kinobot.services;
 
 import org.json.JSONArray;
@@ -30,13 +33,6 @@ public class OmdbConnector {
         //add request header
         con.setRequestProperty("User-Agent", USER_AGENT);
 
-        int responseCode = con.getResponseCode();
-
-        //Terminal
-
-        System.out.println("\nSending 'GET' request to URL : " + url);
-        System.out.println("Response Code : " + responseCode);
-
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(con.getInputStream()));
         String inputLine;
@@ -50,8 +46,6 @@ public class OmdbConnector {
         JSONObject jsonObject = new JSONObject(response.toString());
 
         JSONArray searchList = jsonObject.getJSONArray("Search");
-
-        System.out.println(jsonObject);
 
         List<JSONObject> list = new ArrayList<>();
 

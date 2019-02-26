@@ -1,5 +1,6 @@
-
-
+/**
+ * Mapper class for class MovieInfo instances
+ */
 package com.jarviscorporation.kinobot.mappers;
 
 import com.jarviscorporation.kinobot.domain.MovieInfo;

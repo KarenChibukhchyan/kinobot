@@ -1,3 +1,6 @@
+/**
+ * MovieInfo entity
+ */
 package com.jarviscorporation.kinobot.domain;
 
 public class MovieInfo {
